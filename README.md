@@ -1,6 +1,20 @@
 
 # prot
 
+## Note
+**_THIS CODE IS POORLY STRUCTURED BY RUST STANDARDS_**
+Hence I am reworking it in near future.
+
+Following Rust principles,
+my main goals in using Rust is for code to be modular,
+to deal with unexpected scenarios and usability.
+
+- To start using errors instead of panic where appropriate
+- Using traits or struct types more (and impl)
+- Build up towards a more modular code or library (crate) to refer,
+i.e. where a lot of challenges use similar structure.
+
+## About
 Return the protein coded by a string of codons at the first AUG only.
 - Solution for Rosalind's [Translating RNA into Protein](https://rosalind.info/problems/prot/).
 - Uses clap, serde and csv.

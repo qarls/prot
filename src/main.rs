@@ -1,7 +1,6 @@
 use clap::Parser;
 use csv::Reader;
 use serde::Deserialize;
-use std::cmp;
 use std::collections::BTreeMap;
 
 const ABOUT_MESSAGE: &str =
@@ -25,14 +24,14 @@ type CodonKey = BTreeMap<String, char>;
 
 // Function to check if singleline literal only contains CGAU
 // Copied from HAMM, replacing 84 (T) with 85 (U)
-fn proof_rna(strand: &str) -> bool {
+fn proof_rna(strand: &str) -> &str {
     for base in strand.as_bytes() {
         if let 67 | 71 | 65 | 85 = base {
         } else {
-            return false;
+            panic!("Detected invalid base: {base}");
         }
     }
-    return true;
+    strand
 }
 
 fn rna_trim_to_aug(rna: &str) -> &str {
@@ -44,20 +43,28 @@ fn rna_trim_to_aug(rna: &str) -> &str {
 }
 
 fn rna_to_codons(rna_raw: &str) -> Vec<&str> {
+    proof_rna(rna_raw);
     let rna = rna_trim_to_aug(rna_raw);
-    let bases = rna.chars();
-    let codons: Vec<&str> = Vec::new();
+    let mut codons: Vec<&str> = Vec::new();
 
-    for _ in 0..&bases.count() / 3 {
-        let base = || bases.next().expect("Invalid unwrap in RNA to codons.");
-        let codon = formatln!("{}{}{}", base(), base(), base());
-        codons.push(codon);
+    // This is safe due to proof_rna
+    for i in 0..&rna.len() / 3 {
+        codons.push(&rna[i * 3..=i * 3 + 2])
     }
     codons
 }
 
-fn codon_to_prot(codon: &str, key: CodonKey) -> char {
-    *key.get(codon).expect("Unmatched codon {codon} against key")
+fn codons_to_prot(codons: Vec<&str>, key: CodonKey) -> String {
+    let mut prot = String::new();
+    for codon in codons {
+        let amino_acid = *key.get(codon).expect("Unmatched codon {codon} against key");
+        if amino_acid == '*' {
+            return prot;
+        } else {
+            prot.push(amino_acid);
+        }
+    }
+    panic!("Reached ending without terminating codon");
 }
 
 fn main() {
@@ -74,10 +81,8 @@ fn main() {
     }
 
     let args = Cli::parse();
-    let mut prot = String::new();
     let rna = args.rna_string;
-
-    if !proof_rna(&rna) {
-        panic!("RNA contains non-viable char!");
-    }
+    let codons = rna_to_codons(&rna);
+    let prot = codons_to_prot(codons, key);
+    println!("{}", prot);
 }
