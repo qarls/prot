@@ -1,7 +1,7 @@
-
 # prot
 
-_**Long version practicing error handling, crate usage, modules.**_
+- _**Long version practicing error handling, crate usage, modules.**_
+- For short version, see [Main Branch](https://github.com/qarls/prot/tree/main/).
 
 Return the protein coded by a string of codons at the first AUG only.
 - Solution for Rosalind's [Translating RNA into Protein](https://rosalind.info/problems/prot/).
