@@ -1,88 +1,91 @@
+use anyhow::{bail, Result};
 use clap::Parser;
-use csv::Reader;
-use serde::Deserialize;
 use std::collections::BTreeMap;
+// Local library
+mod hashkey;
+use crate::hashkey::CodonKey;
 
 const ABOUT_MESSAGE: &str =
     "Return the protein coded by a string of RNA codons at the first AUG only.";
+
 const START_CODON: &str = "AUG";
 
 #[derive(Parser)]
 #[command(version, about = ABOUT_MESSAGE, long_about = None)]
 struct Cli {
-    /// String of RNA
-    rna_string: String,
+    /// String of either rna
+    rna: String,
 }
 
-#[derive(Debug, Deserialize)]
-struct CodonResult {
-    codon: String,
-    amino_acid: char,
+struct RNA {
+    string: String,
 }
 
-type CodonKey = BTreeMap<String, char>;
+struct Prot {
+    string: String,
+}
 
-// Function to check if singleline literal only contains CGAU
-// Copied from HAMM, replacing 84 (T) with 85 (U)
-fn proof_rna(strand: &str) -> &str {
-    for base in strand.as_bytes() {
-        if let 67 | 71 | 65 | 85 = base {
+/// Check if single-line literal only contains CGAU
+fn build_rna(string: String) -> Result<RNA> {
+    for base in string.as_bytes() {
+        if let b'A' | b'C' | b'G' | b'U' = base {
         } else {
-            panic!("Detected invalid base: {base}");
+            bail!("Non CGAU char {} found!", base)
         }
     }
-    strand
+    Ok(RNA { string })
 }
 
-fn rna_trim_to_aug(rna: &str) -> &str {
-    if rna.starts_with(START_CODON) {
-        return rna;
-    }
-    let trim_start = rna.split_once(START_CODON).unwrap().0;
-    return rna.trim_start_matches(trim_start);
-}
-
-fn rna_to_codons(rna_raw: &str) -> Vec<&str> {
-    proof_rna(rna_raw);
-    let rna = rna_trim_to_aug(rna_raw);
-    let mut codons: Vec<&str> = Vec::new();
-
-    // This is safe due to proof_rna
-    for i in 0..&rna.len() / 3 {
-        codons.push(&rna[i * 3..=i * 3 + 2])
-    }
-    codons
-}
-
-fn codons_to_prot(codons: Vec<&str>, key: CodonKey) -> String {
-    let mut prot = String::new();
-    for codon in codons {
-        let amino_acid = *key.get(codon).expect("Unmatched codon {codon} against key");
-        if amino_acid == '*' {
-            return prot;
-        } else {
-            prot.push(amino_acid);
+impl RNA {
+    /// Try converting RNA into protein.
+    /// If valid, this will trim to the first AUG and end at first stop codon.
+    pub fn try_into_prot(&self, key: CodonKey) -> Result<Prot> {
+        let codons = self.try_into_codons()?;
+        let mut prot = String::new();
+        for codon in &codons {
+            let result = key.get(*codon);
+            match result {
+                Some('*') => return Ok(Prot { string: prot }),
+                None => bail!("Codon {} read does not match key.", codon),
+                Some(amino_acid) => prot.push(*amino_acid),
+            }
         }
+        bail!(
+            "All codons were valid, but no STOP codon was found, ending at {}.",
+            codons.get(codons.len()).unwrap()
+        );
     }
-    panic!("Reached ending without terminating codon");
+
+    fn try_into_codons(&self) -> Result<Vec<&str>> {
+        let mut codons: Vec<&str> = Vec::new();
+
+        let rna = if self.string.starts_with(START_CODON) {
+            &self.string
+        } else {
+            if let Some((trim_start, _)) = self.string.split_once(START_CODON) {
+                self.string.trim_start_matches(trim_start)
+            } else {
+                bail!("No start codon {} found", START_CODON)
+            }
+        };
+
+        for i in 0..&rna.len() / 3 {
+            codons.push(&rna[i * 3..=i * 3 + 2])
+        }
+        Ok(codons)
+    }
 }
 
-fn main() {
-    // This fancy macro allows us to include a UTF-8 encoded file as string at compile compile time.
-    // For Windows users compiling, you may need to tweak the path, i.e. '\'
-    let csv_key = include_str!("../data/human_codon_usage_table.csv");
-
-    // Code to convert our table into a BTreeMap or Hashmap for key usage.
-    let mut rdr_key = Reader::from_reader(csv_key.as_bytes());
+fn main() -> Result<()> {
+    // Generate key
+    let csv_file = include_str!("../data/human_codon_usage_table.csv");
     let mut key: CodonKey = BTreeMap::new();
-    for result in rdr_key.deserialize() {
-        let unwrap: CodonResult = result.expect("Unexpected type mismatch!");
-        key.insert(unwrap.codon, unwrap.amino_acid);
-    }
+    hashkey::populate(&mut key, csv_file);
 
     let args = Cli::parse();
-    let rna = args.rna_string;
-    let codons = rna_to_codons(&rna);
-    let prot = codons_to_prot(codons, key);
-    println!("{}", prot);
+    let rna = build_rna(args.rna)?;
+    let prot = rna.try_into_prot(key)?;
+    println!("{}", prot.string);
+
+    Ok(())
 }
