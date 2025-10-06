@@ -1,21 +1,9 @@
-
 # prot
 
-## Note
-**_THIS CODE IS POORLY STRUCTURED BY RUST STANDARDS_**
-Hence I am reworking it in near future.
+- _**Short version with 52 lines of code**_
+- For 100+ line version with more proper error handling (*anyhow*), modules and multiple bound checks, see [Branch Proper](https://github.com/qarls/prot/tree/proper/).
 
-Following Rust principles,
-my main goals in using Rust is for code to be modular,
-to deal with unexpected scenarios and usability.
-
-- To start using errors instead of panic where appropriate
-- Using traits or struct types more (and impl)
-- Build up towards a more modular code or library (crate) to refer,
-i.e. where a lot of challenges use similar structure.
-
-## About
-Return the protein coded by a string of codons at the first AUG only.
+Return the protein coded by a string of codons.
 - Solution for Rosalind's [Translating RNA into Protein](https://rosalind.info/problems/prot/).
 - Uses clap, serde and csv.
 
@@ -44,3 +32,7 @@ is not the most efficient way to store our data,
 given every time we run the program, *csv* and *serde* has to process it into our hashmap.
 An unused crate phf appears to be a solution to this, acting as a static hashmap (compiles at run-time),
 though it doesn't type it into Rust for you.
+
+## [2025-10-05]
+
+Made a short version after making a long version.
