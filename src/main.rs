@@ -17,26 +17,28 @@ struct Cli {
     rna: String,
 }
 
-struct RNA<'a> {
+/// Wrapper for RNA string
+struct Rna<'a> {
     string: &'a str,
 }
 
+/// Wrapper for Protein
 struct Prot {
     string: String,
 }
 
 /// Check if single-line literal only contains CGAU
-fn build_rna(string: &str) -> Result<RNA> {
+fn build_rna(string: &str) -> Result<Rna<'_>> {
     for base in string.as_bytes() {
         if let b'A' | b'C' | b'G' | b'U' = base {
         } else {
-            bail!("Non CGAU char {} found!", base)
+            bail!("Non CGAU char {} found!", *base as char)
         }
     }
-    Ok(RNA { string })
+    Ok(Rna { string })
 }
 
-impl RNA<'_> {
+impl Rna<'_> {
     /// Try converting RNA into protein.
     /// If valid, this will trim to the first AUG and end at first stop codon.
     pub fn try_into_prot(&self, key: CodonKey) -> Result<Prot> {
@@ -59,16 +61,16 @@ impl RNA<'_> {
     fn try_into_codons(&self) -> Result<Vec<&str>> {
         let mut codons: Vec<&str> = Vec::new();
 
+        // Trims to start at AUG fMet codon
         let rna = if self.string.starts_with(START_CODON) {
-            &self.string
+            self.string
+        } else if let Some((trim_start, _)) = self.string.split_once(START_CODON) {
+            self.string.trim_start_matches(trim_start)
         } else {
-            if let Some((trim_start, _)) = self.string.split_once(START_CODON) {
-                self.string.trim_start_matches(trim_start)
-            } else {
-                bail!("No start codon {} found", START_CODON)
-            }
+            bail!("No start codon {} found", START_CODON)
         };
 
+        // Divides triplets as codons (without codon/stop checking)
         for i in 0..&rna.len() / 3 {
             codons.push(&rna[i * 3..=i * 3 + 2])
         }
