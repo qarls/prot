@@ -17,8 +17,8 @@ struct Cli {
     rna: String,
 }
 
-struct RNA {
-    string: String,
+struct RNA<'a> {
+    string: &'a str,
 }
 
 struct Prot {
@@ -26,7 +26,7 @@ struct Prot {
 }
 
 /// Check if single-line literal only contains CGAU
-fn build_rna(string: String) -> Result<RNA> {
+fn build_rna(string: &str) -> Result<RNA> {
     for base in string.as_bytes() {
         if let b'A' | b'C' | b'G' | b'U' = base {
         } else {
@@ -36,7 +36,7 @@ fn build_rna(string: String) -> Result<RNA> {
     Ok(RNA { string })
 }
 
-impl RNA {
+impl RNA<'_> {
     /// Try converting RNA into protein.
     /// If valid, this will trim to the first AUG and end at first stop codon.
     pub fn try_into_prot(&self, key: CodonKey) -> Result<Prot> {
@@ -83,7 +83,7 @@ fn main() -> Result<()> {
     hashkey::populate(&mut key, csv_file);
 
     let args = Cli::parse();
-    let rna = build_rna(args.rna)?;
+    let rna = build_rna(&args.rna)?;
     let prot = rna.try_into_prot(key)?;
     println!("{}", prot.string);
 
